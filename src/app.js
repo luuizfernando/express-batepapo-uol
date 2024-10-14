@@ -19,11 +19,12 @@ try {
 }
 const db = mongoClient.db();
 
+const agora = dayjs();
+const formatado = agora.format('HH:mm:ss');
+
 app.post("/participants", async (req, res) => {
     const { name } = req.body;
 
-    const agora = dayjs();
-    const formatado = agora.format('HH:mm:ss');
 
     const newUser = { name, lastStatus: Date.now() };
     const newMessage = { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: `${formatado}` };
@@ -42,17 +43,30 @@ app.post("/participants", async (req, res) => {
     }
 });
 
-app.get("/participants", (req, res) => {
-    db.collection("participants").find().toArray()
-        .then(participants => res.send(participants))
-        .catch(err => res.status(500).send(err.message));
+app.get("/participants", async (req, res) => {
+    try {
+        const participantes = await db.collection("participants").find().toArray();
+        res.send(participantes);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
 });
 
-app.post("/messages", (req, res) => {
-    const { from } = req.headers;
+app.post("/messages", async (req, res) => {
+    const from = req.header('User');
     const { to, text, type } = req.body;
 
+    const newMessage = { from, to, text, type, time: `${formatado}` };
 
+    try {
+        const user = await db.collection("participants").findOne({ name: from });
+        if (!user) return res.status(404).send("Participante não encontrado.");
+
+        await db.collection("messages").insertOne(newMessage);
+        res.sendStatus(201);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
 });
 
 app.get("/messages", (req, res) => {
