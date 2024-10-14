@@ -10,13 +10,16 @@ app.use(cors());
 app.use(express.json());
 dotenv.config();
 
-let db;
 const mongoClient = new MongoClient(process.env.DATABASE_URL);
-mongoClient.connect()
-    .then(() => db = mongoClient.db())
-    .catch((err) => console.log(err.message));
+try {
+    await mongoClient.connect();
+    console.log("MongoDB conectado!");
+} catch (err) {
+    console.log(err.message);
+}
+const db = mongoClient.db();
 
-app.post("/participants", (req, res) => {
+app.post("/participants", async (req, res) => {
     const { name } = req.body;
 
     const agora = dayjs();
@@ -25,13 +28,18 @@ app.post("/participants", (req, res) => {
     const newUser = { name, lastStatus: Date.now() };
     const newMessage = { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: `${formatado}` };
 
-    db.collection("participants").insertOne(newUser)
-        .then(() => res.sendStatus(201))
-        .catch(err => console.log(err.message));
+    try {
+        const usuario = await db.collection("participants").findOne(newUser);
+        if (usuario) return res.status(409).send("Esse usuário já existe.");
 
-    db.collection("messages").insertOne(newMessage)
-        .then(() => res.sendStatus(201))
-        .catch(err => console.log(err.message));
+        await db.collection("participants").insertOne(newUser);
+        res.sendStatus(201);
+
+        await db.collection("messages").insertOne(newMessage);
+        res.sendStatus(201);
+    } catch (err) {
+        console.log(err.message);
+    }
 });
 
 app.get("/participants", (req, res) => {
@@ -41,6 +49,9 @@ app.get("/participants", (req, res) => {
 });
 
 app.post("/messages", (req, res) => {
+    const { from } = req.headers;
+    const { to, text, type } = req.body;
+
 
 });
 
