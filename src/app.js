@@ -3,6 +3,7 @@ import cors from 'cors';
 import { MongoClient } from 'mongodb';
 import dotenv from 'dotenv';
 import dayjs from 'dayjs';
+import joi from 'joi';
 
 const app = express();
 
@@ -25,6 +26,14 @@ const formatado = agora.format('HH:mm:ss');
 app.post("/participants", async (req, res) => {
     const { name } = req.body;
 
+    const participantsSchema = joi.object({
+        name: joi.string().required()
+    });
+    const validation = participantsSchema.validate(req.body, { abortEarly: false });
+    if (validation.error) {
+        const errors = validation.error.details.map(detail => detail.message);
+        return res.status(422).send(errors);
+    }
 
     const newUser = { name, lastStatus: Date.now() };
     const newMessage = { from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: `${formatado}` };
