@@ -63,7 +63,20 @@ app.get("/participants", async (req, res) => {
 
 app.post("/messages", async (req, res) => {
     const from = req.header('User');
+    if (!from) return res.status(422).send("'from' é obrigatório.");
+
     const { to, text, type } = req.body;
+
+    const messageSchema = joi.object({
+        to: joi.string().required(),
+        text: joi.string().required(),
+        type: joi.string().valid('message', 'private_message').required()
+    });
+    const validation = messageSchema.validate(req.body, { abortEarly: false });
+    if (validation.error) {
+        const errors = validation.error.details.map(detail => detail.message);
+        return res.status(422).send(errors);
+    }
 
     const newMessage = { from, to, text, type, time: `${formatado}` };
 
