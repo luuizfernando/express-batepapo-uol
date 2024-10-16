@@ -121,4 +121,29 @@ app.post("/status", async (req, res) => {
     }
 });
 
+setInterval(async () => {
+    const time = Date.now() - 10000
+    try {
+        const inactive = await db.collection("participants")
+            .find({ lastStatus: { $lt: time } })
+            .toArray();
+
+        if (inactive > 0) {
+            const messages = inactive.map(inactive => {
+                return {
+                    from: inactive.name,
+                    to: 'Todos',
+                    text: 'sai da sala...',
+                    type: 'status',
+                    time: dayjs().format("HH:mm:ss")
+                }
+            })
+            await db.collection("messages").insertMany(messages);
+            await db.collection("participants").deleteMany({ lastStatus: { $lt: time } });
+        }
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+}, 15000);
+
 app.listen(process.env.PORT, () => { console.log(`Servidor Rodando na porta ${process.env.PORT}.`) });
