@@ -121,6 +121,7 @@ app.post("/status", async (req, res) => {
     }
 });
 
+// Deletar usuários inativos por mais de 15 segundos
 setInterval(async () => {
     const time = Date.now() - 10000
     try {
