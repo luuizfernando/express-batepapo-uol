@@ -106,21 +106,18 @@ app.get("/messages", async (req, res) => {
 });
 
 app.post("/status", async (req, res) => {
-    const { User } = req.headers;
-
-    const headerSchema = joi.object({
-        User: joi.string().required()
-    });
-    const validation = headerSchema.validate(User, { abortEarly: false });
-    if (validation.error) {
-        const errors = validation.error.details.map(detail => detail.message);
-        return res.status(404).send(errors);
-    }
+    const { user } = req.headers;
+    if (!user) return res.sendStatus(404);
 
     try {
+        const result = await db.collection("participants").updateOne(
+            { name: user }, { $set: { lastStatus: Date.now() } }
+        );
 
+        if (result.matchedCount === 0) return res.sendStatus(404);
+        res.sendStatus(200);
     } catch (err) {
-
+        res.status(500).send(err.message);
     }
 });
 
