@@ -61,29 +61,26 @@ app.get("/participants", async (req, res) => {
 });
 
 app.post("/messages", async (req, res) => {
-    const from = req.header('User');
-    if (!from) return res.status(422).send("'from' é obrigatório.");
-
-    const { to, text, type } = req.body;
+    const { user } = req.headers;
 
     const messageSchema = joi.object({
         to: joi.string().required(),
         text: joi.string().required(),
         type: joi.string().valid('message', 'private_message').required()
     });
-    const validation = messageSchema.validate(req.body, { abortEarly: false });
+    const validation = messageSchema.validate({ ...req.body, from: user }, { abortEarly: false });
     if (validation.error) {
         const errors = validation.error.details.map(detail => detail.message);
         return res.status(422).send(errors);
     }
 
-    const newMessage = { from, to, text, type, time: `${formatado}` };
+    const message = { ...req.body, from: user, time: `${formatado}` };
 
     try {
-        const user = await db.collection("participants").findOne({ name: from });
+        const user = await db.collection("participants").findOne({ name: user });
         if (!user) return res.status(404).send("Participante não encontrado.");
 
-        await db.collection("messages").insertOne(newMessage);
+        await db.collection("messages").insertOne(message);
         res.sendStatus(201);
     } catch (err) {
         res.status(500).send(err.message);
@@ -91,7 +88,21 @@ app.post("/messages", async (req, res) => {
 });
 
 app.get("/messages", async (req, res) => {
+    const { user } = req.headers;
+    const { limit } = req.query;
+    const numberLimit = Number(limit);
 
+    if (limit !== undefined && (numberLimit <= 0 || isNaN(numberLimit))) return res.sendStatus(422);
+
+    try {
+        const messages = await db.collection("messages").find({ $or: [{ from: user }, { to: { $in: ["Todos", user] } }, { type: "message" }] })
+            .limit(limit === undefined ? 0 : numberLimit)
+            .sort(({ time: -1 }))
+            .toArray();
+        res.send(messages);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
 });
 
 app.post("/status", async (req, res) => {
